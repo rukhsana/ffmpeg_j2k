@@ -15,7 +15,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with FFmpeg; if not, write to the Free Software
+ * License along with Libav; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
@@ -100,6 +100,12 @@ enum J2kQuantsty{ ///< quantization style
 #define J2K_CSTY_SOP       0x02 // SOP marker present
 #define J2K_CSTY_EPH       0x04 // EPH marker present
 
+/* Tier-1 coding pass types. */
+#define J2K_SIGPASS     0     /* significance */
+#define J2K_REFPASS     1     /* refinement */
+#define J2K_CLNPASS     2     /* cleanup */
+
+
 typedef struct {
     int data[J2K_MAX_CBLKW][J2K_MAX_CBLKH];
     int flags[J2K_MAX_CBLKW+2][J2K_MAX_CBLKH+2];
@@ -138,15 +144,26 @@ typedef struct {
 } J2kPass;
 
 typedef struct {
+    uint16_t index;
+    uint8_t npasses;
+    uint8_t maxpasses;
+    uint8_t firstpassno;
+    uint8_t passno;
+} J2kCblkSeg;
+
+typedef struct {
     uint8_t npasses;
     uint8_t ninclpasses; ///< number coding of passes included in codestream
     uint8_t nonzerobits;
+    uint8_t firstpassno;
+    uint8_t numsegs;
     uint16_t length;
     uint16_t lengthinc;
     uint8_t lblock;
     uint8_t zero;
     uint8_t data[8192];
-    J2kPass passes[100];
+    J2kCblkSeg segs[50];
+  //J2kPass passes[100];
 } J2kCblk; ///< code block
 
 typedef struct {
