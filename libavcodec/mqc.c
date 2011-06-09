@@ -105,4 +105,5 @@ void ff_mqc_init_contexts(MqcState *mqc)
         ff_mqc_nmps[2*i  ] = 2*cx_states[i].nmps;
         ff_mqc_nmps[2*i+1] = 2*cx_states[i].nmps + 1;
     }
+    
 }

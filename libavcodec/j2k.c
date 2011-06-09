@@ -300,6 +300,9 @@ int ff_j2k_init_component(J2kComponent *comp, J2kCodingStyle *codsty, J2kQuantSt
                 cblk->length = 0;
                 cblk->lengthinc = 0;
                 cblk->npasses = 0;
+                cblk->numsegs = 0;
+                cblk->firstpassno = 0;
+                cblk->csegindex = 0;
             }
 
             y0 = band->coord[1][0];

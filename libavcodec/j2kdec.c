@@ -574,13 +574,13 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
 {
     int bandno, cblkny, cblknx, cblkno, ret, marker, len;
 
-   av_log(s->avctx, AV_LOG_INFO, "start decode_packet %d, bit_index = %d\n", s->buf - s->buf_start, s->bit_index);
+    //av_log(s->avctx, AV_LOG_INFO, "start decode_packet %d, bit_index = %d\n", s->buf - s->buf_start, s->bit_index);
 
 
-   av_log(s->avctx, AV_LOG_INFO, "csty = %x\n", codsty->csty);
+   //av_log(s->avctx, AV_LOG_INFO, "csty = %x\n", codsty->csty);
    if (codsty->csty & J2K_CSTY_SOP)
    {
-     av_log(s->avctx, AV_LOG_INFO, "inside marker\n");
+     //av_log(s->avctx, AV_LOG_INFO, "inside marker\n");
      if (AV_RB16(s->buf) == J2K_SOP){
          s->buf += 2;
          len = bytestream_get_be16(&s->buf);
@@ -590,7 +590,7 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
      }
    }
 
-   av_log(s->avctx, AV_LOG_INFO, "before flush pointer: %d, bit_index = %d\n", s->buf - s->buf_start, s->bit_index);
+   //av_log(s->avctx, AV_LOG_INFO, "before flush pointer: %d, bit_index = %d\n", s->buf - s->buf_start, s->bit_index);
 
    if (!(ret = get_bits(s, 1))){
      j2k_flush(s);
@@ -598,7 +598,7 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
     } else if (ret < 0)
         return ret;
 
-   av_log(s->avctx, AV_LOG_INFO, "after flush pointer: %d, %d\n", ret, s->buf - s->buf_start);
+   //av_log(s->avctx, AV_LOG_INFO, "after flush pointer: %d, %d\n", ret, s->buf - s->buf_start);
 
 
     for (bandno = 0; bandno < rlevel->nbands; bandno++){
@@ -620,7 +620,7 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
                     incl = get_bits(s, 1);
                 else
                     incl = tag_tree_decode(s, prec->cblkincl + pos, layno+1) == layno;
-                av_log(s->avctx, AV_LOG_INFO, "included = %d, pointer = %d\n", incl, s->buf - s->buf_start);
+                //av_log(s->avctx, AV_LOG_INFO, "included = %d, pointer = %d\n", incl, s->buf - s->buf_start);
                 if (!incl)
                     continue;
                 else if (incl < 0)
@@ -628,22 +628,22 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
 
                 if (!cblk->npasses)
 		{
-                    cblk->nonzerobits = expn[bandno] + numgbits - 1 - tag_tree_decode(s, prec->zerobits + pos, 100);
+		    cblk->nonzerobits =  tag_tree_decode(s, prec->zerobits + pos, 100);
                     cblk->firstpassno = cblk->nonzerobits * 3;
-                 
+                    cblk->nonzerobits = expn[bandno] + numgbits - 1 - cblk->nonzerobits;
                 }
                 if ((newpasses = getnpasses(s)) < 0)
 		  return newpasses;
-                av_log(s->avctx, AV_LOG_INFO, "newpasses = %d, nonzerobits = %d\n", newpasses, 
-cblk->nonzerobits);
+                //av_log(s->avctx, AV_LOG_INFO, "newpasses = %d, firstpassno = %d\n", newpasses, cblk->firstpassno);
 
                 savenewpasses = newpasses;
 		mycounter = 0;
                 if (newpasses > 0){
                     if ((llen = getlblockinc(s)) < 0)
                         return llen;
-                    av_log(s->avctx, AV_LOG_INFO, "increment = %d, pointer = %d\n", llen, s->buf - s->buf_start);
+                    //av_log(s->avctx, AV_LOG_INFO, "increment = %d, pointer = %d\n", llen, s->buf - s->buf_start);
                     cblk->lblock += llen;
+                    cblk->csegindex = 0;
                     numsegs = 0;
                     index = 0;
                     while (newpasses > 0){
@@ -651,21 +651,21 @@ cblk->nonzerobits);
                        /* XXX - the maxpasses is not set precisely but this doesn't matter... */
 		        maxpasses = getsegpasscnt(passno, cblk->firstpassno, 10000, (codsty->cblk_style & J2K_CBLK_BYPASS)
                                                   != 0, (codsty->cblk_style & J2K_CBLK_TERMALL) != 0);
-                        cblk->segs[numsegs].passno = passno;
-                        cblk->segs[numsegs].maxpasses = maxpasses;
+                        (cblk->segs[numsegs]).passno = passno;
+                        (cblk->segs[numsegs]).maxpasses = maxpasses;
                         n = FFMIN(newpasses, maxpasses);
-                        //av_log(s->avctx, AV_LOG_INFO, "maxpasses = %d, passno = %d, n = %d\n", maxpasses, passno, n);
+                        //av_log(s->avctx, AV_LOG_INFO, "numsegs = %d, passno = %d, n = %d\n", numsegs, passno, n);
 			mycounter += n;
 			newpasses -= n;
 
 			if ((len = get_bits(s, cblk->lblock + floor_log2(n))) < 0) {
 			    return len;
 			}
-                        cblk->segs[numsegs].npasses += n;
-                        cblk->segs[numsegs].index = index;
+                        (cblk->segs[numsegs]).npasses += n;
+                        (cblk->segs[numsegs]).index = index;
                         index += len;
 			numsegs = numsegs + 1;
-                        av_log(s->avctx, AV_LOG_INFO, "len = %d, maxpasses = %d, n = %d, passno = %d\n", maxpasses, len, n, passno);
+                        //av_log(s->avctx, AV_LOG_INFO, "maxpasses = %d, len = %d, n = %d, passno = %d\n", maxpasses, len, n, passno);
                     }
                 }
                 cblk->length = index;
@@ -675,7 +675,7 @@ cblk->nonzerobits);
     }
     j2k_flush(s);
 
-    av_log(s->avctx, AV_LOG_INFO, "before end of packet header %d\n", s->buf - s->buf_start);
+    //av_log(s->avctx, AV_LOG_INFO, "before end of packet header %d\n", s->buf - s->buf_start);
 
     if (codsty->csty & J2K_CSTY_EPH) {
         if (AV_RB16(s->buf) == J2K_EPH) {
@@ -689,15 +689,22 @@ cblk->nonzerobits);
         J2kBand *band = rlevel->band + bandno;
         int yi, cblknw = band->prec[precno].xi1 - band->prec[precno].xi0;
         for (yi = band->prec[precno].yi0; yi < band->prec[precno].yi1; yi++){
-            int xi, i, cnt;
+            int xi, i, cnt, j;
             for (xi = band->prec[precno].xi0; xi < band->prec[precno].xi1; xi++){
                 J2kCblk *cblk = band->cblk + yi * cblknw + xi;
-                for (i = 0; i < cblk->numsegs; i++){
+                for (i = cblk->csegindex; i < cblk->numsegs; i++){
 		    cnt = (i + 1 == cblk->numsegs? cblk->length: cblk->segs[i+1].index) - cblk->segs[i].index;
                     if (s->buf_end - s->buf < cnt)
-                        return AVERROR(EINVAL);
+                           return AVERROR(EINVAL);
                     bytestream_get_buffer(&s->buf, &cblk->data[cblk->segs[i].index], cnt);
-                }
+                    cblk->csegindex = cblk->csegindex + 1;
+                    /*if (s->buf - s->buf_start < 2000){
+                    av_log(s->avctx, AV_LOG_INFO, "cblk seg data: %d\n", cnt);
+                    for (j = 0; j < cnt; j++){
+		       av_log(s->avctx, AV_LOG_INFO, "0x%x  ", cblk->data[cblk->segs[i].index + j]);
+                    }
+                    av_log(s->avctx, AV_LOG_INFO, "\n");}*/
+	        }
             }
         }
     }
@@ -854,36 +861,56 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
     int bpass_csty_symbol = J2K_CBLK_BYPASS & codsty->cblk_style;
     int vert_causal_ctx_csty_symbol = J2K_CBLK_VSC & codsty->cblk_style;
 
+    ff_mqc_init_contexts(&t1->mqc);
+
+    /*av_log(s->avctx, AV_LOG_INFO, "ctx:\n");
+
+    for (x = 0; x < 2*47; x++){
+      av_log(s->avctx, AV_LOG_INFO, "0x%x %d %d\n", ff_mqc_qe[x], ff_mqc_nlps[x], ff_mqc_nmps[x]);
+      }*/
+    av_log(s->avctx, AV_LOG_INFO, "numsegs: %d\n", cblk->numsegs);
+
     for (x = 0; cblk->numsegs; x++)
     {
-         ff_mqc_initdec(&t1->mqc, cblk->data[cblk->segs[x].index]);
+      av_log(s->avctx, AV_LOG_INFO, "cblk index: %d\n", (cblk->segs[x]).index);
+      ff_mqc_initdata(&t1->mqc, &cblk->data[(cblk->segs[x]).index]);
 
-         for (y = 0; y < cblk->segs[x].npasses; y++){
+         for (y = 0; y < (cblk->segs[x]).npasses; y++){
 
-             pass_t = (cblk->segs[x].passno + y + 2) % 3;
+	     bpno = cblk->nonzerobits - ((cblk->segs[x]).passno + y - cblk->firstpassno + 2)/3;
+             pass_t = ((cblk->segs[x]).passno + y + 2) % 3;
+             av_log(s->avctx, AV_LOG_INFO, "nonzerobits: %d, pass_t: %d\n", cblk->nonzerobits, (cblk->segs[x]).passno);
 
              switch(pass_t){
                   case J2K_SIGPASS:
-                          decode_sigpass(t1, width, height, bpno+1, bandpos,
+                          decode_sigpass(t1, width, height, bpno + 1, bandpos,
                                          bpass_csty_symbol && (clnpass_cnt >= 4), vert_causal_ctx_csty_symbol);
                           break;
                   case J2K_REFPASS:
-                          decode_refpass(t1, width, height, bpno+1);
+                          decode_refpass(t1, width, height, bpno + 1);
                           if (bpass_csty_symbol && clnpass_cnt >= 4)
-                             ff_mqc_initdec(&t1->mqc, cblk->data);
+                             ff_mqc_initdata(&t1->mqc, cblk->data);
                           break;
                   case J2K_CLNPASS:
-                          decode_clnpass(s, t1, width, height, bpno+1, bandpos,
+                          decode_clnpass(s, t1, width, height, bpno + 1, bandpos,
                                          codsty->cblk_style & J2K_CBLK_SEGSYM);
                           clnpass_cnt = clnpass_cnt + 1;
                           if (bpass_csty_symbol && clnpass_cnt >= 4)
-                             ff_mqc_initdec(&t1->mqc, cblk->data);
+                             ff_mqc_initdata(&t1->mqc, cblk->data);
                           break;
               }
 
-              if (pass_t == 3){
+             /*av_log(s->avctx, AV_LOG_INFO, "data and flag:\n");
+	     for (y = 0; y < height + 2; y++){
+	       for (x = 0; x < width + 2; x++){
+		 av_log(s->avctx, AV_LOG_INFO, "0x%x  ",t1->data[y][x]);
+               }
+               av_log(s->avctx, AV_LOG_INFO, "\n");
+	       }*/
+
+	     /*if (pass_t == 3){
 	         bpno--;
-              }
+		 }*/
          }
     }
     return 0;

@@ -147,7 +147,6 @@ typedef struct {
     uint16_t index;
     uint8_t npasses;
     uint8_t maxpasses;
-    uint8_t firstpassno;
     uint8_t passno;
 } J2kCblkSeg;
 
@@ -161,6 +160,7 @@ typedef struct {
     uint16_t lengthinc;
     uint8_t lblock;
     uint8_t zero;
+    uint8_t csegindex;
     uint8_t data[8192];
     J2kCblkSeg segs[50];
   //J2kPass passes[100];

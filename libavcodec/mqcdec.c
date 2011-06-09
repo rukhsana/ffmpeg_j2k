@@ -68,15 +68,17 @@ static int exchange(MqcState *mqc, uint8_t *cxstate, int lps)
     return d;
 }
 
-void ff_mqc_initdec(MqcState *mqc, uint8_t *bp)
+void ff_mqc_initdata(MqcState *mqc, uint8_t *bp)
 {
-    ff_mqc_init_contexts(mqc);
+  //ff_mqc_init_contexts(mqc);
     mqc->bp = bp;
     mqc->c = (*mqc->bp ^ 0xff) << 16;
     bytein(mqc);
     mqc->c = mqc->c << 7;
     mqc->a = 0x8000;
 }
+
+
 
 int ff_mqc_decode(MqcState *mqc, uint8_t *cxstate)
 {

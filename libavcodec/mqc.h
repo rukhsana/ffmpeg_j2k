@@ -62,7 +62,7 @@ int ff_mqc_flush(MqcState *mqc);
 /* decoder */
 
 /** initialize the decoder */
-void ff_mqc_initdec(MqcState *mqc, uint8_t *bp);
+void ff_mqc_initdata(MqcState *mqc, uint8_t *bp);
 
 /** returns decoded bit with context cx */
 int ff_mqc_decode(MqcState *mqc, uint8_t *cxstate);
