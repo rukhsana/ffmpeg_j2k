@@ -303,6 +303,12 @@ int ff_j2k_init_component(J2kComponent *comp, J2kCodingStyle *codsty, J2kQuantSt
                 cblk->numsegs = 0;
                 cblk->firstpassno = 0;
                 cblk->csegindex = 0;
+                for (i = 0; i < 50; i++){
+		  cblk->segs[i].index = 0;
+                  cblk->segs[i].npasses = 0;
+                  cblk->segs[i].maxpasses = 0;
+                  cblk->segs[i].passno = 0;
+                }
             }
 
             y0 = band->coord[1][0];
