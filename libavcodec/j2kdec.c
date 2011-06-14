@@ -628,9 +628,9 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
                     if ((llen = getlblockinc(s)) < 0)
                         return llen;
                     cblk->lblock += llen;
-                    cblk->csegindex = 0;
-                    numsegs = 0;
-                    index = 0;
+                    //cblk->csegindex = 0;
+                    numsegs = cblk->numsegs;
+                    index = cblk->length;
                     while (newpasses > 0){
                         passno = cblk->firstpassno + cblk->npasses + mycounter;
                         maxpasses = getsegpasscnt(passno, cblk->firstpassno, 10000, (codsty->cblk_style & J2K_CBLK_BYPASS)
@@ -646,6 +646,7 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
 			}
                         (cblk->segs[numsegs]).npasses += n;
                         (cblk->segs[numsegs]).index = index;
+                        //av_log(s->avctx, AV_LOG_INFO, "npasses: %d, maxpasses: %d\n", cblk->segs[numsegs].npasses, maxpasses);
                         index += len;
 			numsegs = numsegs + 1;
                      }
@@ -688,7 +689,7 @@ static int decode_packet(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kResLev
 static int decode_packets(J2kDecoderContext *s, J2kTile *tile)
 {
     int layno, reslevelno, compno, precno, ok_reslevel;
-    av_log(s->avctx, AV_LOG_INFO, "start decode_packets bit_index: %d", s->bit_index);
+    //av_log(s->avctx, AV_LOG_INFO, "start decode_packets bit_index: %d", s->bit_index);
     s->bit_index = 8;
     for (layno = 0; layno < tile->codsty[0].nlayers; layno++){
         ok_reslevel = 1;
@@ -805,7 +806,7 @@ static void decode_clnpass(J2kDecoderContext *s, J2kT1Context *t1, int width, in
         val = (val << 1) + ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
         val = (val << 1) + ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
         if (val != 0xa) {
-            av_log(s->avctx, AV_LOG_ERROR,"Segmentation symbol value incorrect\n");
+	  av_log(s->avctx, AV_LOG_ERROR,"Segmentation symbol value incorrect\n");
         }
     }
 }
@@ -814,6 +815,7 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
                        int width, int height, int bandpos)
 {
     int passno = cblk->npasses, pass_t = 2, bpno = cblk->nonzerobits - 1, x, y, clnpass_cnt = 0;
+    int tmp1, tmp2;
 
     for (y = 0; y < height+2; y++)
         memset(t1->flags[y], 0, (width+2)*sizeof(int));
@@ -837,35 +839,42 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
 
     ff_mqc_init_contexts(&t1->mqc);
 
+     tmp1 = (cblk->segs[0].passno + 0 + 2) % 3;
+    tmp2 = cblk->nonzerobits - ((cblk->segs[0]).passno + 0 - cblk->firstpassno + 2)/3;
+
+    //av_log(s->avctx, AV_LOG_INFO, "pass_t = %d, firstbpno: %d, npasses: %d, len = %d\n", tmp1, tmp2, cblk->segs[0].npasses, cblk->segs[1].index);
+
     for (x = 0; x < cblk->numsegs; x++)
     {
       ff_mqc_initdata(&t1->mqc, &cblk->data[(cblk->segs[x]).index]);
 
          for (y = 0; y < (cblk->segs[x]).npasses; y++){
 
+	   pass_t = (cblk->segs[x].passno + y + 2) % 3;
+	   bpno = cblk->nonzerobits - ((cblk->segs[x]).passno + y - cblk->firstpassno + 2)/3;
 	      switch(pass_t){
                   case J2K_SIGPASS:
-                          decode_sigpass(t1, width, height, bpno + 1, bandpos,
+                          decode_sigpass(t1, width, height, bpno , bandpos,
                                          bpass_csty_symbol && (clnpass_cnt >= 4), vert_causal_ctx_csty_symbol);
                           break;
                   case J2K_REFPASS:
-                          decode_refpass(t1, width, height, bpno + 1);
+                          decode_refpass(t1, width, height, bpno);
                           if (bpass_csty_symbol && clnpass_cnt >= 4)
                              ff_mqc_initdata(&t1->mqc, cblk->data);
                           break;
                   case J2K_CLNPASS:
-                          decode_clnpass(s, t1, width, height, bpno + 1, bandpos,
+                          decode_clnpass(s, t1, width, height, bpno, bandpos,
                                          codsty->cblk_style & J2K_CBLK_SEGSYM);
                           clnpass_cnt = clnpass_cnt + 1;
                           if (bpass_csty_symbol && clnpass_cnt >= 4)
                              ff_mqc_initdata(&t1->mqc, cblk->data);
                           break;
               }
-             pass_t++;
+	      /*pass_t++;
 	     if (pass_t == 3){
 	       pass_t = 0;
 	         bpno--;
-		 }
+		 }*/
          }
     }
     return 0;
