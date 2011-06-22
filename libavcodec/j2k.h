@@ -63,6 +63,48 @@ enum J2kQuantsty{ ///< quantization style
 #define J2K_MAX_CBLKW 64
 #define J2K_MAX_CBLKH 64
 
+/*begin: Jasper flags*/
+/* The northeast neighbour has been found to be significant. */
+#define	JPC_NESIG	0x0001
+/* The southeast neighbour has been found to be significant. */
+#define	JPC_SESIG	0x0002
+/* The southwest neighbour has been found to be significant. */
+#define	JPC_SWSIG	0x0004
+/* The northwest neighbour has been found to be significant. */
+#define	JPC_NWSIG	0x0008
+/* The north neighbour has been found to be significant. */
+#define	JPC_NSIG	0x0010
+/* The east neighbour has been found to be significant. */
+#define	JPC_ESIG	0x0020
+/* The south neighbour has been found to be significant. */
+#define	JPC_SSIG	0x0040
+/* The west neighbour has been found to be significant. */
+#define	JPC_WSIG	0x0080
+/* The significance mask for 8-connected neighbours. */
+#define	JPC_OTHSIGMSK \
+	(JPC_NSIG | JPC_NESIG | JPC_ESIG | JPC_SESIG | JPC_SSIG | JPC_SWSIG | JPC_WSIG | JPC_NWSIG)
+/* The significance mask for 4-connected neighbours. */
+#define	JPC_PRIMSIGMSK	(JPC_NSIG | JPC_ESIG | JPC_SSIG | JPC_WSIG)
+
+/* The north neighbour is negative in value. */
+#define	JPC_NSGN	0x0100
+/* The east neighbour is negative in value. */
+#define	JPC_ESGN	0x0200
+/* The south neighbour is negative in value. */
+#define	JPC_SSGN	0x0400
+/* The west neighbour is negative in value. */
+#define	JPC_WSGN	0x0800
+/* The sign mask for 4-connected neighbours. */
+#define	JPC_SGNMSK	(JPC_NSGN | JPC_ESGN | JPC_SSGN | JPC_WSGN)
+
+/* This sample has been found to be significant. */
+#define JPC_SIG		0x1000
+/* The sample has been refined. */
+#define	JPC_REFINE	0x2000
+/* This sample has been processed during the significance pass. */
+#define	JPC_VISIT	0x4000
+/*end jasper flags */
+
 // T1 flags
 // flags determining significance of neighbour coefficients
 #define J2K_T1_SIG_N  0x0001

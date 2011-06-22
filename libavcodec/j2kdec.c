@@ -714,20 +714,69 @@ static int decode_packets(J2kDecoderContext *s, J2kTile *tile)
 }
 
 /* TIER-1 routines */
-static void decode_sigpass(J2kT1Context *t1, int width, int height, int bpno, int bandno, int bpass_csty_symbol,
-                           int vert_causal_ctx_csty_symbol)
+
+static uint16_t get_debug_flag(uint16_t in_flag)
 {
-    int mask = 3 << (bpno - 1), y0, x, y;
+  uint16_t out_flag;
+  out_flag = 0;
+  if(in_flag & J2K_T1_SIG)
+    out_flag |= JPC_SIG;
+  if(in_flag & J2K_T1_REF)
+    out_flag |= JPC_REFINE;
+  if(in_flag & J2K_T1_VIS)
+    out_flag |= JPC_VISIT;
+  if(in_flag & J2K_T1_SIG_N)
+    out_flag |= JPC_NSIG;
+  if(in_flag & J2K_T1_SIG_E)
+    out_flag |= JPC_ESIG;
+  if(in_flag & J2K_T1_SIG_W)
+    out_flag |= JPC_WSIG;
+  if(in_flag & J2K_T1_SIG_S)
+    out_flag |= JPC_SSIG;
+  if(in_flag & J2K_T1_SIG_NE)
+    out_flag |= JPC_NESIG;
+  if(in_flag & J2K_T1_SIG_NW)
+    out_flag |= JPC_NWSIG;
+  if(in_flag & J2K_T1_SIG_SE)
+    out_flag |= JPC_SESIG;
+  if(in_flag & J2K_T1_SIG_SW)
+    out_flag |= JPC_SWSIG;
+  if(in_flag & J2K_T1_SGN_N)
+    out_flag |= JPC_NSGN;
+  if(in_flag & J2K_T1_SGN_S)
+    out_flag |= JPC_SSGN;
+  if(in_flag & J2K_T1_SGN_W)
+    out_flag |= JPC_WSGN;
+  if(in_flag & J2K_T1_SGN_E)
+    out_flag |= JPC_ESGN;
+
+  return out_flag;
+}
+
+static void decode_sigpass(J2kDecoderContext *s, J2kT1Context *t1, int width, int height, int bpno, int bandno, int bpass_csty_symbol,
+                           int vert_causal_ctx_csty_symbol, int pflag)
+{
+    int mask = 3 << (bpno - 1), y0, x, y, v, curctx;
+
 
     for (y0 = 0; y0 < height; y0 += 4)
         for (x = 0; x < width; x++)
             for (y = y0; y < height && y < y0+4; y++){
+	      //if (y >= 0 && x >= 0 && pflag)
+	      //av_log(s->avctx, AV_LOG_INFO, "y = %d, x = %d, flag = 0x%x: fif = %d, sif1 = %d, sif2 = %d\n", y+1, x+1, get_debug_flag(t1->flags[y+1][x+1]), t1->flags[y+1][x+1] & J2K_T1_SIG_NB, t1->flags[y+1][x+1]&J2K_T1_SIG, t1->flags[y+1][x+1]& J2K_T1_VIS);
                 if ((t1->flags[y+1][x+1] & J2K_T1_SIG_NB)
                 && !(t1->flags[y+1][x+1] & (J2K_T1_SIG | J2K_T1_VIS))){
                     int vert_causal_ctx_csty_loc_symbol = vert_causal_ctx_csty_symbol && (x == 3 && y == 3);
-                    if (ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ff_j2k_getnbctxno(t1->flags[y+1][x+1], bandno,
-                                      vert_causal_ctx_csty_loc_symbol))){
+                    curctx  = ff_j2k_getnbctxno(t1->flags[y+1][x+1], bandno, vert_causal_ctx_csty_loc_symbol);
+                    //if (y >= 0 && x >= 0 && pflag)
+		    //av_log(s->avctx, AV_LOG_INFO, "sig mask, y = %d, x = %d, curctx = %d, a = 0x%x, c = 0x%x, ct = 0x%x\n", y+1, x+1, curctx, (t1->mqc).a, (t1->mqc).c, (t1->mqc).ct);
+                    v = ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + curctx);
+                    //if (y >= 0 && x >= 0 && pflag)
+		    //av_log(s->avctx, AV_LOG_INFO, "after cxstate = 0x%x, a = 0x%x, c = 0x%x, ct = 0x%x\n", ff_mqc_qe[*(curctx + t1->mqc.cx_states)], (t1->mqc).a, (t1->mqc).c, (t1->mqc).ct);
+                    if (v){
                         int xorbit, ctxno = ff_j2k_getsgnctxno(t1->flags[y+1][x+1], &xorbit);
+                        //if (y >= 0 && x >= 0)
+			//av_log(s->avctx, AV_LOG_INFO, "sig v, y = %d, x = %d\n", y+1, x+1);
                         if (bpass_csty_symbol)
                              t1->data[y][x] = ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ctxno) ? -mask : mask;
                         else
@@ -811,11 +860,13 @@ static void decode_clnpass(J2kDecoderContext *s, J2kT1Context *t1, int width, in
     }
 }
 
+
+
 static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Context *t1, J2kCblk *cblk,
                        int width, int height, int bandpos)
 {
     int passno = cblk->npasses, pass_t = 2, bpno = cblk->nonzerobits - 1, x, y, clnpass_cnt = 0;
-    int tmp1, tmp2;
+    int tmp1, tmp2, i, j;
 
     for (y = 0; y < height+2; y++)
         memset(t1->flags[y], 0, (width+2)*sizeof(int));
@@ -844,6 +895,21 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
 
     //av_log(s->avctx, AV_LOG_INFO, "pass_t = %d, firstbpno: %d, npasses: %d, len = %d\n", tmp1, tmp2, cblk->segs[0].npasses, cblk->segs[1].index);
 
+    /*    av_log(s->avctx, AV_LOG_INFO, "init cblk data and flags, height = %d, width = %d\n", height, width);
+    for(i = 0; i < height; i++){
+        for(j = 0; j < width; j++){
+	    av_log(s->avctx, AV_LOG_INFO, "0x%x  ", t1->data[i][j]*2);
+        }
+        av_log(s->avctx, AV_LOG_INFO, "\n");}
+
+    av_log(s->avctx, AV_LOG_INFO, "\n\n");
+
+     for(i = 0; i < height + 2; i++){
+		for(j = 0; j < width + 2; j++){
+		  av_log(s->avctx, AV_LOG_INFO, "0x%x  ", t1->flags[i][j]);
+                }
+                av_log(s->avctx, AV_LOG_INFO, "\n");}*/
+
     for (x = 0; x < cblk->numsegs; x++)
     {
       ff_mqc_initdata(&t1->mqc, &cblk->data[(cblk->segs[x]).index]);
@@ -852,17 +918,21 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
 
 	   pass_t = (cblk->segs[x].passno + y + 2) % 3;
 	   bpno = cblk->nonzerobits - ((cblk->segs[x]).passno + y - cblk->firstpassno + 2)/3;
+           av_log(s->avctx, AV_LOG_INFO, "bpno = %d, pass_t = %d\n", bpno, pass_t);
 	      switch(pass_t){
                   case J2K_SIGPASS:
-                          decode_sigpass(t1, width, height, bpno , bandpos,
-                                         bpass_csty_symbol && (clnpass_cnt >= 4), vert_causal_ctx_csty_symbol);
+		    av_log(s->avctx, AV_LOG_INFO, "sigpass\n");
+                          decode_sigpass(s, t1, width, height, bpno , bandpos,
+                                         bpass_csty_symbol && (clnpass_cnt >= 4), vert_causal_ctx_csty_symbol,1);
                           break;
                   case J2K_REFPASS:
+		    av_log(s->avctx, AV_LOG_INFO, "refpass\n");
                           decode_refpass(t1, width, height, bpno);
                           if (bpass_csty_symbol && clnpass_cnt >= 4)
                              ff_mqc_initdata(&t1->mqc, cblk->data);
                           break;
                   case J2K_CLNPASS:
+                          av_log(s->avctx, AV_LOG_INFO, "clnpass\n");
                           decode_clnpass(s, t1, width, height, bpno, bandpos,
                                          codsty->cblk_style & J2K_CBLK_SEGSYM);
                           clnpass_cnt = clnpass_cnt + 1;
@@ -875,8 +945,27 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
 	       pass_t = 0;
 	         bpno--;
 		 }*/
+              av_log(s->avctx, AV_LOG_INFO, "a = 0x%x, c = 0x%x, ct = 0x%x\n", (t1->mqc).a, (t1->mqc).c, (t1->mqc).ct);
+              /*if (y < 3){
+              av_log(s->avctx, AV_LOG_INFO, "cblk data and flags, height = %d, width = %d\n", height, width);
+	      for(i = 0; i < height; i++){
+		for(j = 0; j < width; j++){
+		  av_log(s->avctx, AV_LOG_INFO, "0x%x  ", t1->data[i][j]/2);
+                }
+                av_log(s->avctx, AV_LOG_INFO, "\n");}
+
+	      av_log(s->avctx, AV_LOG_INFO, "\n\n");
+
+               for(i = 0; i < height + 2; i++){
+		for(j = 0; j < width + 2; j++){
+		  av_log(s->avctx, AV_LOG_INFO, "0x%x  ", get_debug_flag(t1->flags[i][j]));
+                }
+                av_log(s->avctx, AV_LOG_INFO, "\n");}}*/
          }
     }
+
+
+
     return 0;
 }
 
