@@ -762,25 +762,17 @@ static void decode_sigpass(J2kDecoderContext *s, J2kT1Context *t1, int width, in
     for (y0 = 0; y0 < height; y0 += 4)
         for (x = 0; x < width; x++)
             for (y = y0; y < height && y < y0+4; y++){
-	      //if (y >= 0 && x >= 0 && pflag)
-	      //av_log(s->avctx, AV_LOG_INFO, "y = %d, x = %d, flag = 0x%x: fif = %d, sif1 = %d, sif2 = %d\n", y+1, x+1, get_debug_flag(t1->flags[y+1][x+1]), t1->flags[y+1][x+1] & J2K_T1_SIG_NB, t1->flags[y+1][x+1]&J2K_T1_SIG, t1->flags[y+1][x+1]& J2K_T1_VIS);
-                if ((t1->flags[y+1][x+1] & J2K_T1_SIG_NB)
+	        if ((t1->flags[y+1][x+1] & J2K_T1_SIG_NB)
                 && !(t1->flags[y+1][x+1] & (J2K_T1_SIG | J2K_T1_VIS))){
                     int vert_causal_ctx_csty_loc_symbol = vert_causal_ctx_csty_symbol && (x == 3 && y == 3);
                     curctx  = ff_j2k_getnbctxno(t1->flags[y+1][x+1], bandno, vert_causal_ctx_csty_loc_symbol);
-                    //if (y >= 0 && x >= 0 && pflag)
-		    //av_log(s->avctx, AV_LOG_INFO, "sig mask, y = %d, x = %d, curctx = %d, a = 0x%x, c = 0x%x, ct = 0x%x\n", y+1, x+1, curctx, (t1->mqc).a, (t1->mqc).c, (t1->mqc).ct);
-                    v = ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + curctx);
-                    //if (y >= 0 && x >= 0 && pflag)
-		    //av_log(s->avctx, AV_LOG_INFO, "after cxstate = 0x%x, a = 0x%x, c = 0x%x, ct = 0x%x\n", ff_mqc_qe[*(curctx + t1->mqc.cx_states)], (t1->mqc).a, (t1->mqc).c, (t1->mqc).ct);
+                    v = ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + curctx);
                     if (v){
                         int xorbit, ctxno = ff_j2k_getsgnctxno(t1->flags[y+1][x+1], &xorbit);
-                        //if (y >= 0 && x >= 0)
-			//av_log(s->avctx, AV_LOG_INFO, "sig v, y = %d, x = %d\n", y+1, x+1);
                         if (bpass_csty_symbol)
-                             t1->data[y][x] = ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ctxno) ? -mask : mask;
+                             t1->data[y][x] = ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + ctxno) ? -mask : mask;
                         else
-                             t1->data[y][x] = (ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ctxno) ^ xorbit) ?
+                             t1->data[y][x] = (ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + ctxno) ^ xorbit) ?
                                                -mask : mask;
 
                         ff_j2k_set_significant(t1, x, y, t1->data[y][x] < 0);
@@ -803,7 +795,7 @@ static void decode_refpass(J2kT1Context *t1, int width, int height, int bpno)
             for (y = y0; y < height && y < y0+4; y++){
                 if ((t1->flags[y+1][x+1] & (J2K_T1_SIG | J2K_T1_VIS)) == J2K_T1_SIG){
                     int ctxno = ff_j2k_getrefctxno(t1->flags[y+1][x+1]);
-                    int r = ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ctxno) ? phalf : nhalf;
+                    int r = ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + ctxno) ? phalf : nhalf;
                     t1->data[y][x] += t1->data[y][x] < 0 ? -r : r;
                     t1->flags[y+1][x+1] |= J2K_T1_REF;
                 }
@@ -813,47 +805,49 @@ static void decode_refpass(J2kT1Context *t1, int width, int height, int bpno)
 static void decode_clnpass(J2kDecoderContext *s, J2kT1Context *t1, int width, int height,
                            int bpno, int bandno, int seg_symbols)
 {
-    int mask = 3 << (bpno - 1), y0, x, y, runlen, dec;
+    int mask = 3 << (bpno - 1), y0, x, y, runlen, dec, dflag = 0;
 
     for (y0 = 0; y0 < height; y0 += 4) {
         for (x = 0; x < width; x++){
+	  //if ((t1->mqc).a == 0xf002 && (t1->mqc).c == 0x90d1f000 && (t1->mqc).ct == 0x4)
+	  //dflag = 1;
             if (y0 + 3 < height && !(
             (t1->flags[y0+1][x+1] & (J2K_T1_SIG_NB | J2K_T1_VIS | J2K_T1_SIG)) ||
             (t1->flags[y0+2][x+1] & (J2K_T1_SIG_NB | J2K_T1_VIS | J2K_T1_SIG)) ||
             (t1->flags[y0+3][x+1] & (J2K_T1_SIG_NB | J2K_T1_VIS | J2K_T1_SIG)) ||
             (t1->flags[y0+4][x+1] & (J2K_T1_SIG_NB | J2K_T1_VIS | J2K_T1_SIG)))){
-                if (!ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + MQC_CX_RL))
+                if (!ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + MQC_CX_RL))
                     continue;
-                runlen = ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
-                runlen = (runlen << 1) | ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
+                runlen = ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
+                runlen = (runlen << 1) | ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
                 dec = 1;
             } else{
-                runlen = 0;
+	        runlen = 0;
                 dec = 0;
             }
-
             for (y = y0 + runlen; y < y0 + 4 && y < height; y++){
-                if (!dec){
+	        if (!dec){
                     if (!(t1->flags[y+1][x+1] & (J2K_T1_SIG | J2K_T1_VIS)))
-                        dec = ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ff_j2k_getnbctxno(t1->flags[y+1][x+1],
+                        dec = ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + ff_j2k_getnbctxno(t1->flags[y+1][x+1],
                                                                                             bandno, 0));
                 }
                 if (dec){
                     int xorbit, ctxno = ff_j2k_getsgnctxno(t1->flags[y+1][x+1], &xorbit);
-                    t1->data[y][x] = (ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + ctxno) ^ xorbit) ? -mask : mask;
+                    t1->data[y][x] = (ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + ctxno) ^ xorbit) ? -mask : mask;
                     ff_j2k_set_significant(t1, x, y, t1->data[y][x] < 0);
                 }
+                 t1->flags[y+1][x+1] &= ~J2K_T1_VIS;
                 dec = 0;
-                t1->flags[y+1][x+1] &= ~J2K_T1_VIS;
             }
+
         }
     }
     if (seg_symbols) {
         int val;
-        val = ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
-        val = (val << 1) + ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
-        val = (val << 1) + ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
-        val = (val << 1) + ff_mqc_decode(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
+        val = ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
+        val = (val << 1) + ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
+        val = (val << 1) + ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
+        val = (val << 1) + ff_mqc_decode1(&t1->mqc, t1->mqc.cx_states + MQC_CX_UNI);
         if (val != 0xa) {
 	  av_log(s->avctx, AV_LOG_ERROR,"Segmentation symbol value incorrect\n");
         }
@@ -877,13 +871,6 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
     cblk->data[cblk->length] = 0xff;
     cblk->data[cblk->length+1] = 0xff;
 
-    /*av_log(s->avctx, AV_LOG_INFO, "cblk start, length: %d, height: %d, width: %d, passno: %d, bpno: %d, bandpos: %d\n",
-                                   cblk->length, height, width, passno, bpno, bandpos);
-
-    for(x = 0; x < cblk->length; x++)
-        av_log(s->avctx, AV_LOG_INFO, "0X%x  ", (int8_t)cblk->data[x]);
-
-    av_log(s->avctx, AV_LOG_INFO, "\n\n");*/
 
     int bpass_csty_symbol = J2K_CBLK_BYPASS & codsty->cblk_style;
     int vert_causal_ctx_csty_symbol = J2K_CBLK_VSC & codsty->cblk_style;
@@ -912,7 +899,15 @@ static int decode_cblk(J2kDecoderContext *s, J2kCodingStyle *codsty, J2kT1Contex
 
     for (x = 0; x < cblk->numsegs; x++)
     {
-      ff_mqc_initdata(&t1->mqc, &cblk->data[(cblk->segs[x]).index]);
+      int cnt = (x + 1 == cblk->numsegs? cblk->length: cblk->segs[x+1].index) - cblk->segs[x].index;
+      av_log(s->avctx, AV_LOG_INFO, "cblk start, length: %d, height: %d, width: %d\n",
+                                   cblk->length, height, width);
+
+    for(i = 0; i < cnt; i++)
+        av_log(s->avctx, AV_LOG_INFO, "0x%x  ", (int8_t)cblk->data[(cblk->segs[x]).index + i]);
+
+    av_log(s->avctx, AV_LOG_INFO, "\n\n");
+      ff_mqc_initdata1(&t1->mqc, &cblk->data[(cblk->segs[x]).index], cnt);
 
          for (y = 0; y < (cblk->segs[x]).npasses; y++){
 

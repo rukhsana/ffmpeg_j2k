@@ -38,7 +38,7 @@ extern uint8_t ff_mqc_nlps[2*47];
 extern uint8_t ff_mqc_nmps[2*47];
 
 typedef struct {
-    uint8_t *bp, *bpstart;
+    uint8_t *bp, *bpstart, *bpend;
     unsigned int a;
     unsigned int c;
     unsigned int ct;
@@ -63,9 +63,11 @@ int ff_mqc_flush(MqcState *mqc);
 
 /** initialize the decoder */
 void ff_mqc_initdata(MqcState *mqc, uint8_t *bp);
+void ff_mqc_initdata1(MqcState *mqc, uint8_t *bp, int len);
 
 /** returns decoded bit with context cx */
 int ff_mqc_decode(MqcState *mqc, uint8_t *cxstate);
+int ff_mqc_decode1(MqcState *mqc, uint8_t *cxstate);
 
 /* common */
 
